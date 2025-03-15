@@ -1,0 +1,5 @@
+Django
+requests
+selenium
+psycopg2-binary 
+python-dotenv   
