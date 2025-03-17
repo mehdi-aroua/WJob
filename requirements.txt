@@ -1,0 +1,6 @@
+pymupdf
+transformers
+torch
+spacy
+
+
