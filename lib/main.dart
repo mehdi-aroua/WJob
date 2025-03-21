@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/welcome_screen.dart';
-import 'screens/Add_Skill_Screen.dart';
-import 'screens/Add_Certification_Screen.dart';
+
 
 
 
