@@ -19,7 +19,7 @@ def filter_jobs(user_input, jobs):
     job_texts = []
     for job in jobs:
         # Build a job text from the job attributes
-        job_text = f"{job['title']} {job.get('description', '')} {job.get('company', '')} {job.get('location', '')} {job.get('experience_level', '')} {job.get('salary_range', '')} {job.get('date_posted', '')}"
+        job_text = f"{job.get('title', '')} {job.get('description', '')} {job.get('company', '')} {job.get('location', '')} {job.get('experience_level', '')} {job.get('salary_range', '')} {job.get('date_posted', '')}"
         job_texts.append(job_text)
 
     if not job_texts:  # Check if there are any jobs to compare
