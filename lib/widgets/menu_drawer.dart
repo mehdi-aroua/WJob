@@ -42,7 +42,6 @@ class MenuDrawer extends StatelessWidget {
             title: const Text('Settings'),
             onTap: () {
               Navigator.pop(context);
-              // TODO: Add settings navigation
             },
           ),
           ListTile(
@@ -50,7 +49,6 @@ class MenuDrawer extends StatelessWidget {
             title: const Text('Help'),
             onTap: () {
               Navigator.pop(context);
-              // TODO: Add help navigation
             },
           ),
         ],

@@ -15,7 +15,7 @@ class WelcomeScreen extends StatefulWidget {
 
 class _WelcomeScreenState extends State<WelcomeScreen>
     with SingleTickerProviderStateMixin {
-  bool _showChatBot = false; // ✅ Cohérence du nom
+  bool _showChatBot = false;
   late AnimationController _animationController;
 
   @override
@@ -29,7 +29,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
   @override
   void dispose() {
-    _animationController.dispose(); // ✅ Bonne pratique
+    _animationController.dispose(); 
     super.dispose();
   }
 
@@ -43,7 +43,10 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: _buildAppBar(context),
-      drawer: const MenuDrawer(),
+      drawer: SizedBox(
+      width: MediaQuery.of(context).size.width * 0.5, 
+      child: const MenuDrawer(),
+      ),
       body: SafeArea(
         child: Stack(
           children: [

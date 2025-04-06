@@ -13,11 +13,15 @@ class _AddLanguageScreenState extends State<AddLanguageScreen> with SingleTicker
   final TextEditingController languageController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
 
+  String selectedLanguage = 'English'; // Default language
   String selectedProficiency = 'Beginner'; // Niveau par défaut
   final List<Map<String, String>> _languages = [];
 
   bool _showChatBot = false;
   late final AnimationController _animationController;
+
+  // List of languages (simulating an API response)
+  List<String> supportedLanguages = [];
 
   @override
   void initState() {
@@ -26,6 +30,8 @@ class _AddLanguageScreenState extends State<AddLanguageScreen> with SingleTicker
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
+    // Simulate an API call to get supported languages
+    _loadSupportedLanguages();
   }
 
   @override
@@ -39,6 +45,16 @@ class _AddLanguageScreenState extends State<AddLanguageScreen> with SingleTicker
   void _toggleChatBot() {
     setState(() => _showChatBot = !_showChatBot);
     _showChatBot ? _animationController.forward() : _animationController.reverse();
+  }
+
+  void _loadSupportedLanguages() async {
+    // Simulating an API call delay
+    await Future.delayed(const Duration(seconds: 2), () {
+      setState(() {
+        // Example of supported languages (can be replaced with actual API data)
+        supportedLanguages = ['English', 'Spanish', 'French', 'German', 'Chinese', 'Arabic', 'Russian', 'Japanese'];
+      });
+    });
   }
 
   void _addLanguage() {
@@ -101,7 +117,7 @@ class _AddLanguageScreenState extends State<AddLanguageScreen> with SingleTicker
           const SizedBox(height: 10),
           _buildHeader(),
           const SizedBox(height: 20),
-          _buildTextField(languageController, 'Language'),
+          _buildLanguageDropdown(),
           const SizedBox(height: 15),
           _buildProficiencyDropdown(),
           const SizedBox(height: 15),
@@ -132,6 +148,22 @@ class _AddLanguageScreenState extends State<AddLanguageScreen> with SingleTicker
       controller: controller,
       decoration: InputDecoration(
         hintText: hint,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  Widget _buildLanguageDropdown() {
+    return DropdownButtonFormField<String>(
+      value: selectedLanguage,
+      items: supportedLanguages
+          .map((language) => DropdownMenuItem(value: language, child: Text(language)))
+          .toList(),
+      onChanged: (value) {
+        setState(() => selectedLanguage = value!);
+      },
+      decoration: InputDecoration(
+        labelText: 'Language',
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );

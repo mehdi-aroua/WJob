@@ -25,8 +25,12 @@ class _AddCertificationScreenState extends State<AddCertificationScreen>
   bool _showChatBot = false;
 
   File? _selectedImage;
-  String? _imageUrl; // Pour stocker l'URL de l'image sur le web
-  final List<Map<String, String>> _certifications = [];
+  String? _imageUrl;
+  final List<Map<String, dynamic>> _certifications = [];
+  String? _dateError;
+  String? _expirationDateError;
+  Size? _imageSize;
+  String? _imageName;
 
   @override
   void initState() {
@@ -59,13 +63,56 @@ class _AddCertificationScreenState extends State<AddCertificationScreen>
 
     if (pickedFile != null) {
       if (kIsWeb) {
-        // Sur le web, utilisez l'URL de l'image
-        setState(() => _imageUrl = pickedFile.path);
+        setState(() {
+          _imageUrl = pickedFile.path;
+          _imageName = pickedFile.name;
+          _imageSize = null;
+        });
       } else {
-        // Sur mobile, utilisez File
-        setState(() => _selectedImage = File(pickedFile.path));
+        final imageFile = File(pickedFile.path);
+        final image = await decodeImageFromList(await imageFile.readAsBytes());
+        
+        setState(() {
+          _selectedImage = imageFile;
+          _imageSize = Size(image.width.toDouble(), image.height.toDouble());
+          _imageName = pickedFile.path.split('/').last;
+        });
       }
     }
+  }
+
+  bool _validateDates() {
+    final date = dateController.text.trim();
+    final expirationDate = expirationDateController.text.trim();
+    
+    if (date.isEmpty) {
+      setState(() => _dateError = 'Please select a date');
+      return false;
+    }
+    
+    if (expirationDate.isEmpty) {
+      setState(() => _expirationDateError = 'Please select an expiration date');
+      return false;
+    }
+    
+    final dateTime = DateTime.parse(date);
+    final expirationDateTime = DateTime.parse(expirationDate);
+    
+    if (expirationDateTime.isBefore(dateTime)) {
+      setState(() => _expirationDateError = 'Expiration date must be after the issue date');
+      return false;
+    }
+    
+    if (expirationDateTime.isBefore(DateTime.now())) {
+      setState(() => _expirationDateError = 'This certification has already expired');
+      return false;
+    }
+    
+    setState(() {
+      _dateError = null;
+      _expirationDateError = null;
+    });
+    return true;
   }
 
   void _addCertification() {
@@ -75,14 +122,15 @@ class _AddCertificationScreenState extends State<AddCertificationScreen>
     final date = dateController.text.trim();
     final expirationDate = expirationDateController.text.trim();
 
+    if (!_validateDates()) {
+      return;
+    }
+
     if (title.isEmpty ||
         organization.isEmpty ||
-        description.isEmpty ||
-        date.isEmpty ||
-        expirationDate.isEmpty ||
         (_selectedImage == null && _imageUrl == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields and select an image!')),
+        const SnackBar(content: Text('Please fill required fields and select an image!')),
       );
       return;
     }
@@ -94,7 +142,10 @@ class _AddCertificationScreenState extends State<AddCertificationScreen>
         'description': description,
         'date': date,
         'expirationDate': expirationDate,
+        'isExpired': DateTime.parse(expirationDate).isBefore(DateTime.now()),
         'imagePath': kIsWeb ? _imageUrl! : _selectedImage!.path,
+        'imageName': _imageName,
+        'imageSize': _imageSize,
       });
     });
 
@@ -110,19 +161,24 @@ class _AddCertificationScreenState extends State<AddCertificationScreen>
       expirationDateController.clear();
       _selectedImage = null;
       _imageUrl = null;
+      _imageSize = null;
+      _imageName = null;
+      _dateError = null;
+      _expirationDateError = null;
     });
   }
 
-  Future<void> _pickDate(TextEditingController controller) async {
+  Future<void> _pickDate(TextEditingController controller, {DateTime? initialDate}) async {
     final pickedDate = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: initialDate ?? DateTime.now(),
       firstDate: DateTime(1950),
       lastDate: DateTime(2100),
     );
 
     if (pickedDate != null) {
-      controller.text = '${pickedDate.toLocal()}'.split(' ')[0];
+      controller.text = pickedDate.toIso8601String().split('T')[0];
+      _validateDates();
     }
   }
 
@@ -162,11 +218,11 @@ class _AddCertificationScreenState extends State<AddCertificationScreen>
           const SizedBox(height: 15),
           _buildTextField(organizationController, 'Organization'),
           const SizedBox(height: 15),
-          _buildTextField(descriptionController, 'Description'),
+          _buildDescriptionField(),
           const SizedBox(height: 15),
-          _buildDateField(dateController, 'Date'),
+          _buildDateField(dateController, 'Date', errorText: _dateError),
           const SizedBox(height: 15),
-          _buildDateField(expirationDateController, 'Expiration Date'),
+          _buildDateField(expirationDateController, 'Expiration Date', errorText: _expirationDateError),
           const SizedBox(height: 30),
           _buildActionButtons(),
           const SizedBox(height: 30),
@@ -192,26 +248,112 @@ class _AddCertificationScreenState extends State<AddCertificationScreen>
 
   Widget _buildImagePicker() {
     return Center(
-      child: GestureDetector(
-        onTap: _pickImage,
-        child: Container(
-          height: 120,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            color: Colors.grey[200],
-          ),
-          child: _selectedImage != null || _imageUrl != null
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: kIsWeb
-                      ? Image.network(_imageUrl!, fit: BoxFit.cover)
-                      : Image.file(_selectedImage!, fit: BoxFit.cover),
-                )
-              : const Center(
-                  child: Icon(Icons.add_a_photo, color: Colors.teal, size: 40),
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: _pickImage,
+            child: Container(
+              height: 180,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: Colors.grey[200],
+                border: Border.all(
+                  color: Colors.teal,
+                  width: 1.5,
                 ),
-        ),
+              ),
+              child: _selectedImage != null || _imageUrl != null
+                  ? Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: kIsWeb
+                              ? Image.network(
+                                  _imageUrl!,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                )
+                              : Image.file(
+                                  _selectedImage!,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                ),
+                        ),
+                        Positioned(
+                          bottom: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              _imageSize != null
+                                  ? '${_imageSize!.width.toInt()}x${_imageSize!.height.toInt()} px'
+                                  : 'Image imported',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (_imageName != null)
+                          Positioned(
+                            bottom: 8,
+                            left: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                _imageName!.length > 20
+                                    ? '${_imageName!.substring(0, 17)}...'
+                                    : _imageName!,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    )
+                  : Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.add_a_photo, color: Colors.teal, size: 40),
+                          SizedBox(height: 8),
+                          Text(
+                            'Add Certificate Image',
+                            style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Recommended: 800x600 px or higher',
+                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+          ),
+          if (_imageSize != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Text(
+                'Image: $_imageName • ${_imageSize!.width.toInt()}x${_imageSize!.height.toInt()} pixels',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -226,12 +368,46 @@ class _AddCertificationScreenState extends State<AddCertificationScreen>
     );
   }
 
-  Widget _buildDateField(TextEditingController controller, String hint) {
-    return GestureDetector(
-      onTap: () => _pickDate(controller),
-      child: AbsorbPointer(
-        child: _buildTextField(controller, hint),
+  Widget _buildDescriptionField() {
+    return TextField(
+      controller: descriptionController,
+      maxLines: 3,
+      decoration: InputDecoration(
+        hintText: 'Description (Optional)',
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
       ),
+    );
+  }
+
+  Widget _buildDateField(TextEditingController controller, String hint, {String? errorText}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () => _pickDate(
+            controller,
+            initialDate: controller.text.isNotEmpty ? DateTime.parse(controller.text) : null,
+          ),
+          child: AbsorbPointer(
+            child: TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: hint,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                errorText: errorText,
+              ),
+            ),
+          ),
+        ),
+        if (errorText != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4.0),
+            child: Text(
+              errorText,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ),
+      ],
     );
   }
 
@@ -266,7 +442,15 @@ class _AddCertificationScreenState extends State<AddCertificationScreen>
 
   Widget _buildCertificationList() {
     if (_certifications.isEmpty) {
-      return const Center(child: Text('No certifications added yet.'));
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text(
+            'No certifications added yet',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+      );
     }
 
     return ListView.builder(
@@ -275,50 +459,115 @@ class _AddCertificationScreenState extends State<AddCertificationScreen>
       itemCount: _certifications.length,
       itemBuilder: (context, index) {
         final cert = _certifications[index];
+        final isExpired = cert['isExpired'] as bool;
+        
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 8),
-          child: ListTile(
-            leading: cert['imagePath'] != null
-                ? ClipRRect(
+          color: isExpired ? Colors.red[50] : null,
+          child: Column(
+            children: [
+              ListTile(
+                leading: Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
-                    child: kIsWeb
-                        ? Image.network(cert['imagePath']!, width: 50, height: 50, fit: BoxFit.cover)
-                        : Image.file(File(cert['imagePath']!), width: 50, height: 50, fit: BoxFit.cover),
-                  )
-                : const Icon(Icons.image, size: 50),
-            title: Text(cert['title'] ?? ''),
-            subtitle: Text('${cert['organization']} - ${cert['date']}'),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: cert['imagePath'] != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: kIsWeb
+                              ? Image.network(
+                                  cert['imagePath']!,
+                                  fit: BoxFit.cover,
+                                  width: 70,
+                                  height: 70,
+                                )
+                              : Image.file(
+                                  File(cert['imagePath']!),
+                                  fit: BoxFit.cover,
+                                  width: 70,
+                                  height: 70,
+                                ),
+                        )
+                      : const Icon(Icons.image, size: 30),
+                ),
+                title: Text(
+                  cert['title'] ?? '',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${cert['organization']}'),
+                    Text('Issued: ${cert['date']}'),
+                    Text('Expires: ${cert['expirationDate']}'),
+                    if (isExpired)
+                      const Text(
+                        'EXPIRED',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                  ],
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () {
+                    setState(() {
+                      _certifications.removeAt(index);
+                    });
+                  },
+                ),
+              ),
+              if (cert['description']?.isNotEmpty ?? false)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+                  child: Text(
+                    cert['description'],
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Text(
+                  'Image: ${cert['imageName']}${cert['imageSize'] != null ? ' • ${cert['imageSize'].width.toInt()}x${cert['imageSize'].height.toInt()} px' : ''}',
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                ),
+              ),
+            ],
           ),
         );
       },
     );
   }
 
-Widget _buildFreeCertificateButton() {
-  return Center(
-    child: ElevatedButton.icon(
-      onPressed: () {
-        // Rediriger vers la page FreeCertificatesScreen
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const FreeCertificatesScreen(),
-          ),
-        );
-      },
-      icon: const Icon(Icons.card_membership, color: Colors.white),
-      label: const Text(
-        'Free Certificate',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+  Widget _buildFreeCertificateButton() {
+    return Center(
+      child: ElevatedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const FreeCertificatesScreen(),
+            ),
+          );
+        },
+        icon: const Icon(Icons.card_membership, color: Colors.white),
+        label: const Text(
+          'Free Certificate',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.orange,
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        ),
       ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.orange,
-        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-      ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildNextButton() {
     return Center(

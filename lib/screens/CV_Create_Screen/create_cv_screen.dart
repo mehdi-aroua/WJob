@@ -74,8 +74,8 @@ class _CreateCVScreenState extends State<CreateCVScreen> with SingleTickerProvid
   Future<void> _pickDateOfBirth(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate ?? DateTime(2000, 1, 1),
-      firstDate: DateTime(1900),
+      initialDate: _selectedDate ?? DateTime(2004, 1, 1),
+      firstDate: DateTime(1925),
       lastDate: DateTime.now(),
     );
 
