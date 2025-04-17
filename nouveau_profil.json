@@ -1,0 +1,44 @@
+{
+  "firstName": "Thomas", 
+  "lastName": "Laurent",
+  "headline": "Data Engineer",
+  "summary": "Data Engineer avec 6 ans d'expérience en conception et optimisation de pipelines de données pour le Big Data.",
+  "location": "Marseille, France",
+  "linkedin_url": "https://www.linkedin.com/in/thomas-laurent-123",
+  "positions": [
+    {
+      "title": "Senior Data Engineer",
+      "company": "DataWorks",
+      "startDate": "2022-04-01",
+      "endDate": null,
+      "isCurrent": true,
+      "description": "Conception et développement de pipelines ETL pour traiter des données massives avec Spark et Airflow"
+    },
+    {
+      "title": "Data Engineer",
+      "company": "BigAnalytics",
+      "startDate": "2018-09-01",
+      "endDate": "2022-03-31",
+      "isCurrent": false,
+      "description": "Développement de solutions de stockage et traitement de données avec Hadoop et Spark"
+    }
+  ],
+  "education": [
+    {
+      "schoolName": "ENSIMAG Grenoble",
+      "degree": "Ingénieur",
+      "fieldOfStudy": "Informatique et Mathématiques Appliquées",
+      "startDate": "2015-09-01", 
+      "endDate": "2018-06-30",
+      "description": "Spécialisation en Science des Données"
+    }
+  ],
+  "skills": [
+    {"name": "Apache Spark", "endorsements": 28},
+    {"name": "Python", "endorsements": 32},
+    {"name": "SQL", "endorsements": 25},
+    {"name": "ETL", "endorsements": 20},
+    {"name": "Big Data", "endorsements": 24},
+    {"name": "Hadoop", "endorsements": 18}
+  ]
+}

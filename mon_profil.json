@@ -1,0 +1,44 @@
+{
+  "firstName": "Sophie", 
+  "lastName": "Dubois",
+  "headline": "Ingénieure DevOps",
+  "summary": "Ingénieure DevOps avec 4 ans d'expérience en automatisation, CI/CD et gestion d'infrastructures cloud.",
+  "location": "Bordeaux, France",
+  "linkedin_url": "https://www.linkedin.com/in/sophie-dubois-789",
+  "positions": [
+    {
+      "title": "Ingénieure DevOps",
+      "company": "CloudTech",
+      "startDate": "2021-03-01",
+      "endDate": null,
+      "isCurrent": true,
+      "description": "Mise en place et maintenance de pipelines CI/CD avec GitLab et Jenkins"
+    },
+    {
+      "title": "Administratrice Système",
+      "company": "TechSolutions",
+      "startDate": "2019-01-01",
+      "endDate": "2021-02-28",
+      "isCurrent": false,
+      "description": "Administration de serveurs Linux et Windows"
+    }
+  ],
+  "education": [
+    {
+      "schoolName": "ENSIMAG Grenoble",
+      "degree": "Diplôme d'ingénieur",
+      "fieldOfStudy": "Informatique",
+      "startDate": "2016-09-01", 
+      "endDate": "2019-06-30",
+      "description": "Spécialisation en systèmes et réseaux"
+    }
+  ],
+  "skills": [
+    {"name": "Docker", "endorsements": 24},
+    {"name": "Kubernetes", "endorsements": 18},
+    {"name": "AWS", "endorsements": 15},
+    {"name": "Python", "endorsements": 12},
+    {"name": "CI/CD", "endorsements": 20},
+    {"name": "Linux", "endorsements": 25}
+  ]
+}
