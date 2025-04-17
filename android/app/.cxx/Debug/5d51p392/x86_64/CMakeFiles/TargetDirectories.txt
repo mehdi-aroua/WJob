@@ -1,0 +1,2 @@
+K:/WJob/wjob/android/app/.cxx/Debug/5d51p392/x86_64/CMakeFiles/edit_cache.dir
+K:/WJob/wjob/android/app/.cxx/Debug/5d51p392/x86_64/CMakeFiles/rebuild_cache.dir
