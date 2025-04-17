@@ -1,0 +1,2 @@
+D:/fsm/whob main/WJob-develop/android/app/.cxx/Debug/645w64v1/arm64-v8a/CMakeFiles/edit_cache.dir
+D:/fsm/whob main/WJob-develop/android/app/.cxx/Debug/645w64v1/arm64-v8a/CMakeFiles/rebuild_cache.dir
