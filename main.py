@@ -92,6 +92,9 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import threading
 import os
+import django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'job_scraper_project.settings')
+django.setup()
 from job_scraper_project.modules.extract_text import extract_text_from_pdf
 from job_scraper_project.modules.summarize import summarize_text
 from job_scraper_project.modules.extract_info import extract_info
@@ -99,6 +102,17 @@ from job_scraper_project.modules.job_scraper import fetch_jobs
 from job_scraper_project.modules.job_matcher import match_jobs
 from job_scraper_project.modules.job_filter import filter_jobs
 from job_scraper_project.modules.company_stats import show_company_stats
+from django.contrib.auth.hashers import make_password, check_password
+from login.models import User
+from fastapi import FastAPI, HTTPException
+from django.contrib.auth.hashers import make_password, check_password, is_password_usable
+import os
+import django
+import sys
+import base64
+from typing import Dict, Any
+import traceback
+from asgiref.sync import sync_to_async
 
 app = FastAPI()
 
@@ -126,6 +140,131 @@ def extract_cv(file: UploadFile = File(...)):
     info = extract_info(text)
     
     return {"summary": summary, "extracted_info": info}
+
+
+
+
+
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'job_scraper_project.settings')
+django.setup()
+
+from login.models import User
+
+app = FastAPI()
+@app.on_event("startup")
+async def startup_event():
+    await check_db_connection()
+
+@sync_to_async
+def check_db_connection():
+    from django.db import connections
+    try:
+        db_conn = connections['default']
+        db_conn.cursor()
+        print("✅ Database connection successful!")
+    except Exception as e:
+        print("❌ Database connection failed!")
+        print(f"Error: {e}")
+
+def verify_password(plain_password, hashed_password):
+    """Robust password check that won't blow up on malformed hashes."""
+    if not hashed_password or not is_password_usable(hashed_password):
+        return False
+    try:
+        return check_password(plain_password, hashed_password)
+    except (ValueError, TypeError):
+        # gracefully fail rather than crash
+        return False
+hashed = make_password("motdepasse123")
+print(hashed)
+
+@app.post("/signup")
+def signup(user: Dict[str, Any]):
+    try:
+        if User.objects.filter(email=user['email']).exists():
+            raise HTTPException(status_code=400, detail="Email déjà utilisé")
+        
+        photo_data = b''
+        if 'photo' in user and user['photo']:
+            try:
+                photo_data = base64.b64decode(user['photo'].encode('utf-8'))
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Photo invalide: {str(e)}")
+        
+        # Create user instance without saving first
+        user_instance = User(
+            nom=user['nom'],
+            prenom=user['prenom'],
+            ville=user['ville'],
+            phone=user['phone'],
+            email=user['email'],
+            photo=photo_data,
+            date_anniverssaire=user['date_anniverssaire'],
+        )
+        
+        # Properly hash the password using Django's make_password
+        user_instance.password = make_password(user['password'])
+        
+        # Now save the user
+        user_instance.save()
+
+        return {
+            "message": "Utilisateur créé",  
+            "user_id": user_instance.id,    
+            "email": user_instance.email
+        }
+
+    except Exception as e:
+        traceback_str = traceback.format_exc()
+        print("🔴 Full traceback:\n", traceback_str)
+        raise HTTPException(status_code=500, detail=str(e))
+
+import logging
+logger = logging.getLogger(__name__)
+
+@app.post("/login")
+async def login(credentials: Dict[str, Any]):
+    try:
+        email = credentials.get('email', '').strip().lower()
+        password = credentials.get('password', '')
+        
+        if not email or not password:
+            raise HTTPException(status_code=400, detail="Email and password are required")
+
+        logger.debug(f"Login attempt for: {email}")
+
+        try:
+            user = await sync_to_async(User.objects.get)(email=email)
+            logger.debug(f"User found: {user.id}")
+        except User.DoesNotExist:
+            logger.warning(f"User not found: {email}")
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+        try:
+            # Use Django's built-in check_password with error handling
+            is_valid = await sync_to_async(verify_password)(password, user.password)
+            
+            if not is_valid:
+                logger.warning(f"Password verification failed for {email}")
+                raise HTTPException(status_code=401, detail="Invalid credentials")
+
+            logger.info(f"Successful login for {email}")
+            return {
+                "message": "Login successful",
+                "user_id": user.id,
+                "email": user.email
+            }
+        except Exception as e:
+            logger.error(f"Password verification error: {str(e)}")
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Unexpected error during login: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 @app.get("/scrape-jobs")
 def scrape_jobs():
     """Scraper les offres d'emploi sur LinkedIn."""
@@ -188,19 +327,17 @@ def filter_jobs_api(
 def company_stats(job_link: str):
     """Obtenir les statistiques d'une entreprise pour une offre donnée."""
     if not job_link:
-        return {"error": "Job link is required"}
+        raise HTTPException(status_code=400, detail="Le lien de l'offre est requis.")
 
-    driver = create_driver()
-    driver.get("https://www.linkedin.com/jobs/search?keywords=&location=Worldwide&geoId=92000000")
+    try:
+        driver = create_driver()
+        driver.get(job_link)  # utilise le lien directement
+        stats = show_company_stats(driver, job_link)
+        driver.quit()
+        return {"company_stats": stats}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'analyse de l'entreprise : {str(e)}")
 
-    jobs = fetch_jobs(driver)
-    driver.quit()
-
-    # Now we are directly passing the link, no need to search by index
-    stats = show_company_stats(driver, job_link)
-
-    # Return the company stats
-    return {"company_stats": stats}
 
 
 def run_full_process():
