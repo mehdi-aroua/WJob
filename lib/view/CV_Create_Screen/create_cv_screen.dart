@@ -15,6 +15,7 @@ class CreateCVScreen extends StatefulWidget {
 
 class _CreateCVScreenState extends State<CreateCVScreen> with SingleTickerProviderStateMixin {
   File? _profileImage;
+  final ImagePicker _picker = ImagePicker();
   DateTime? _selectedDate;
   late AnimationController _animationController;
   
@@ -99,64 +100,25 @@ class _CreateCVScreenState extends State<CreateCVScreen> with SingleTickerProvid
 
 Future<void> _pickImage() async {
   try {
-    // Request storage permission
-    final status = await Permission.photos.request();
-    
-    if (status.isPermanentlyDenied) {
-      // The user opted to never again see the permission request dialog for this app
-      if (mounted) {
-        await showDialog(
-          context: context,
-          builder: (BuildContext context) => AlertDialog(
-            title: const Text('Permission required'),
-            content: const Text('Please enable photos access in settings'),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () => openAppSettings(),
-                child: const Text('Open Settings'),
-              ),
-            ],
-          ),
-        );
-      }
-      return;
-    }
+    await [
+      Permission.camera,
+      Permission.storage,
+    ].request();
 
-    if (!status.isGranted) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Permission not granted')),
-        );
-      }
-      return;
-    }
-
-    final picker = ImagePicker();
-    final XFile? pickedFile = await picker.pickImage(
+    final XFile? image = await _picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 800,
-      maxHeight: 800,
-      imageQuality: 85,
+      maxWidth: 1800,
+      maxHeight: 1800,
     );
-
-    if (pickedFile != null && mounted) {
-      setState(() {
-        _profileImage = File(pickedFile.path);
-      });
+    
+    if (image != null) {
+      setState(() => _profileImage = File(image.path));
     }
   } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to pick image: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    debugPrint('Error picking image: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error selecting image: $e'))
+    );
   }
 }
   Future<void> _pickDateOfBirth(BuildContext context) async {
@@ -278,9 +240,9 @@ Widget build(BuildContext context) {
           _buildTextField(_nameController, 'Name'),
           _buildTextField(_emailController, 'Email Address', keyboardType: TextInputType.emailAddress),
           _buildTextField(_phoneController, 'Phone Number', keyboardType: TextInputType.phone),
-          _buildTextField(_addressController, 'Address'),
           _buildCountryDropdown(),
           _buildTextField(_cityController, 'City'),
+          _buildTextField(_addressController, 'Address'),
           _buildTextField(_zipController, 'Zip Code', keyboardType: TextInputType.number),
           _buildDropdownField('Gender', ['Male', 'Female', 'Other'], _selectedGender, (val) {
             setState(() {
@@ -309,20 +271,29 @@ Widget build(BuildContext context) {
     );
   }
 
-  Widget _buildProfileImage() {
-    return GestureDetector(
-      onTap: _pickImage,
-      child: CircleAvatar(
-        radius: 50,
-        backgroundImage: _profileImage != null
-            ? FileImage(_profileImage!)
-            : const AssetImage('lib/assets/profiles.png') as ImageProvider,
-        child: _profileImage == null
-            ? const Icon(Icons.camera_alt, size: 30, color: Colors.white)
+  // Replace _buildProfileImage method
+Widget _buildProfileImage() {
+  return GestureDetector(
+    onTap: _pickImage,
+    child: Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.grey[200],
+        image: _profileImage != null
+            ? DecorationImage(
+                image: FileImage(_profileImage!),
+                fit: BoxFit.cover,
+              )
             : null,
       ),
-    );
-  }
+      child: _profileImage == null
+          ? Icon(Icons.camera_alt, size: 40, color: Colors.grey[800])
+          : null,
+    ),
+  );
+}
 
   Widget _buildTextField(TextEditingController controller, String label, {TextInputType keyboardType = TextInputType.text}) {
     return Padding(

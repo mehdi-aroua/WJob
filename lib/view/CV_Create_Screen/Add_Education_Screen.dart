@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:country_picker/country_picker.dart';
 import 'package:flutter_wjob/view/CV_Create_Screen/Add_Experience_Screen.dart';
 import 'package:flutter_wjob/widgets/chatbot_widget.dart';
 
@@ -69,6 +70,11 @@ class _AddEducationScreenState extends State<AddEducationScreen> with SingleTick
     }
   }
 
+  DateTime _parseDate(String date) {
+    List<String> parts = date.split('/');
+    return DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+  }
+
   void _submitForm() {
     String course = courseController.text;
     String degree = degreeController.text;
@@ -84,6 +90,24 @@ class _AddEducationScreenState extends State<AddEducationScreen> with SingleTick
         const SnackBar(content: Text('Please fill in all required fields.')),
       );
       return;
+    }
+
+    if (startDate.isNotEmpty && endDate.isNotEmpty) {
+      try {
+        DateTime start = _parseDate(startDate);
+        DateTime end = _parseDate(endDate);
+        if (start.isAfter(end)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Start date must be before end date.')),
+          );
+          return;
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid date format.')),
+        );
+        return;
+      }
     }
 
     setState(() {
@@ -157,7 +181,7 @@ class _AddEducationScreenState extends State<AddEducationScreen> with SingleTick
                     _buildTextField('Course', courseController),
                     _buildTextField('Degree', degreeController),
                     _buildTextField('School', schoolController),
-                    _buildTextField('Country', countryController),
+                    _buildCountryPickerField(),
                     _buildTextField('Location', locationController),
                     _buildDateField('Start Date', startDateController),
                     _buildDateField('End Date', endDateController),
@@ -224,6 +248,7 @@ class _AddEducationScreenState extends State<AddEducationScreen> with SingleTick
                                     children: [
                                       Text("Degree: ${education['degree'] ?? ''}"),
                                       Text("School: ${education['school'] ?? ''}"),
+                                      Text("Country: ${education['country'] ?? ''}"),
                                       Text("From: ${education['startDate'] ?? ''} To: ${education['endDate'] ?? ''}"),
                                       Text("Description: ${education['description'] ?? ''}"),
                                     ],
@@ -321,6 +346,42 @@ class _AddEducationScreenState extends State<AddEducationScreen> with SingleTick
           focusedBorder: OutlineInputBorder(
             borderSide: const BorderSide(color: Colors.teal),
             borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCountryPickerField() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: GestureDetector(
+        onTap: () {
+          showCountryPicker(
+            context: context,
+            showPhoneCode: false,
+            onSelect: (Country country) {
+              setState(() {
+                countryController.text = country.name;
+              });
+            },
+          );
+        },
+        child: AbsorbPointer(
+          child: TextField(
+            controller: countryController,
+            decoration: InputDecoration(
+              labelText: 'Country',
+              labelStyle: const TextStyle(color: Colors.grey),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.teal),
+              focusedBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Colors.teal),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
           ),
         ),
       ),

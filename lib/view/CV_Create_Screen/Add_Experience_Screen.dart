@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_wjob/view/CV_Create_Screen/Add_Education_Screen.dart';
 import 'package:flutter_wjob/view/CV_Create_Screen/Add_Skill_Screen.dart';
 import 'package:flutter_wjob/widgets/chatbot_widget.dart';
+import 'package:intl/intl.dart';
+import 'package:country_picker/country_picker.dart';
 
 class AddExperienceScreen extends StatefulWidget {
   const AddExperienceScreen({super.key});
@@ -21,8 +23,11 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> with SingleTi
   final TextEditingController responsibilitiesController = TextEditingController();
 
   List<Map<String, String>> experiences = [];
+  bool isLoading = false;
+  DateTime? startDate;
+  DateTime? endDate;
 
-  // ✅ Missing variables
+  // Variables pour le chat
   late AnimationController _animationController;
   bool _isChatOpen = false;
 
@@ -46,12 +51,11 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> with SingleTi
     startDateController.dispose();
     endDateController.dispose();
     responsibilitiesController.dispose();
-
-    _animationController.dispose(); // ✅ Dispose the animation controller
+    _animationController.dispose();
     super.dispose();
   }
 
-  // ✅ Chat toggle method
+  // Toggle chat
   void _toggleChat() {
     setState(() {
       _isChatOpen = !_isChatOpen;
@@ -78,7 +82,7 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> with SingleTi
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: CircleAvatar(
-              backgroundImage: const AssetImage('lib/assets/profiles.png'), // ✅ Correct path
+              backgroundImage: const AssetImage('lib/assets/profiles.png'),
               radius: 20,
             ),
           ),
@@ -108,10 +112,10 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> with SingleTi
                   // Champs de formulaire
                   _buildTextField('Job Title', jobTitleController),
                   _buildTextField('Company', companyController),
-                  _buildTextField('Country', countryController),
+                  _buildCountryPickerField(),
                   _buildTextField('Location', locationController),
-                  _buildDateField('Start Date', startDateController),
-                  _buildDateField('End Date', endDateController),
+                  _buildDateField('Start Date', startDateController, true),
+                  _buildDateField('End Date', endDateController, false),
 
                   const SizedBox(height: 10),
                   const Text(
@@ -207,6 +211,7 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> with SingleTi
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text('Company: ${exp['company']}'),
+                                    Text('Country: ${exp['country']}'),
                                     Text('Location: ${exp['location']}'),
                                     Text('From: ${exp['startDate']} To: ${exp['endDate']}'),
                                     Text('Responsibilities: ${exp['responsibilities']}'),
@@ -310,7 +315,43 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> with SingleTi
     );
   }
 
-  Widget _buildDateField(String label, TextEditingController controller) {
+  Widget _buildCountryPickerField() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: GestureDetector(
+        onTap: () {
+          showCountryPicker(
+            context: context,
+            showPhoneCode: false,
+            onSelect: (Country country) {
+              setState(() {
+                countryController.text = country.name;
+              });
+            },
+          );
+        },
+        child: AbsorbPointer(
+          child: TextField(
+            controller: countryController,
+            decoration: InputDecoration(
+              labelText: 'Country',
+              labelStyle: const TextStyle(color: Colors.grey),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              suffixIcon: const Icon(Icons.arrow_drop_down, color: Colors.teal),
+              focusedBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Colors.teal),
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateField(String label, TextEditingController controller, bool isStartDate) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: TextField(
@@ -324,14 +365,44 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> with SingleTi
           suffixIcon: const Icon(Icons.calendar_today),
         ),
         onTap: () async {
+          DateTime initialDate;
+          DateTime firstDate = DateTime(1950);
+          DateTime lastDate = DateTime.now();
+          
+          // Pour la date de fin, on vérifie que la date de début est déjà sélectionnée
+          if (!isStartDate && startDate != null) {
+            initialDate = startDate!.add(const Duration(days: 1));
+            firstDate = startDate!.add(const Duration(days: 1));
+            lastDate = DateTime(2100);
+          } else {
+            initialDate = DateTime.now();
+          }
+          
           DateTime? pickedDate = await showDatePicker(
             context: context,
-            initialDate: DateTime.now(),
-            firstDate: DateTime(1950),
-            lastDate: DateTime(2100),
+            initialDate: initialDate,
+            firstDate: firstDate,
+            lastDate: lastDate,
           );
+          
           if (pickedDate != null) {
-            controller.text = "${pickedDate.day}/${pickedDate.month}/${pickedDate.year}";
+            // Mise à jour de la date sélectionnée
+            setState(() {
+              if (isStartDate) {
+                startDate = pickedDate;
+                // Si la date de fin est avant la nouvelle date de début, on la réinitialise
+                if (endDate != null && endDate!.isBefore(pickedDate)) {
+                  endDate = null;
+                  endDateController.clear();
+                }
+              } else {
+                endDate = pickedDate;
+              }
+            });
+            
+            // Format de date plus lisible
+            final DateFormat formatter = DateFormat('dd/MM/yyyy');
+            controller.text = formatter.format(pickedDate);
           }
         },
       ),
@@ -347,11 +418,21 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> with SingleTi
     String endDate = endDateController.text;
     String responsibilities = responsibilitiesController.text;
 
-    if (jobTitle.isEmpty || company.isEmpty || startDate.isEmpty || endDate.isEmpty) {
+    if (jobTitle.isEmpty || company.isEmpty || country.isEmpty || startDate.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all required fields.')),
       );
       return;
+    }
+
+    // Vérification des dates
+    if (this.startDate != null && this.endDate != null) {
+      if (this.endDate!.isBefore(this.startDate!)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('End date must be after start date.')),
+        );
+        return;
+      }
     }
 
     setState(() {
@@ -361,10 +442,11 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> with SingleTi
         'country': country,
         'location': location,
         'startDate': startDate,
-        'endDate': endDate,
+        'endDate': endDate.isEmpty ? 'Present' : endDate,
         'responsibilities': responsibilities,
       });
 
+      // Réinitialiser les champs
       jobTitleController.clear();
       companyController.clear();
       countryController.clear();
@@ -372,6 +454,8 @@ class _AddExperienceScreenState extends State<AddExperienceScreen> with SingleTi
       startDateController.clear();
       endDateController.clear();
       responsibilitiesController.clear();
+      this.startDate = null;
+      this.endDate = null;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(

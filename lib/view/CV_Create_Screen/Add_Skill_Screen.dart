@@ -9,13 +9,13 @@ class AddSkillScreen extends StatefulWidget {
   State<AddSkillScreen> createState() => _AddSkillScreenState();
 }
 
-class _AddSkillScreenState extends State<AddSkillScreen> 
+class _AddSkillScreenState extends State<AddSkillScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController skillController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
   final List<Map<String, String>> skills = [];
   String? selectedLevel;
-  
+
   final List<String> skillLevels = [
     'Beginner',
     'Intermediate',
@@ -46,15 +46,14 @@ class _AddSkillScreenState extends State<AddSkillScreen>
   void _toggleChat() {
     setState(() {
       _showChatBot = !_showChatBot;
-      _showChatBot ? _animationController.forward() 
-                  : _animationController.reverse();
+      _showChatBot ? _animationController.forward() : _animationController.reverse();
     });
   }
 
   void _addSkill() {
     final skill = skillController.text.trim();
     final description = descriptionController.text.trim();
-    
+
     if (skill.isEmpty || selectedLevel == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a skill and select a level!')),
@@ -87,7 +86,7 @@ class _AddSkillScreenState extends State<AddSkillScreen>
       );
       return;
     }
-    
+
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const AddCertificationScreen()),
@@ -183,8 +182,61 @@ class _AddSkillScreenState extends State<AddSkillScreen>
     );
   }
 
+  Widget _buildTopButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        ElevatedButton.icon(
+          onPressed: _addSkill,
+          icon: const Icon(Icons.add),
+          label: const Text('Add Skill'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.teal,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: _resetForm,
+          icon: const Icon(Icons.clear),
+          label: const Text('Clear'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.grey[600],
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Align(
+      alignment: Alignment.center,
+      child: ElevatedButton.icon(
+        onPressed: _goToNextPage,
+        icon: const Icon(Icons.arrow_forward),
+        label: const Text('Next'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.teal,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildForm() {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,57 +282,15 @@ class _AddSkillScreenState extends State<AddSkillScreen>
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
+          const SizedBox(height: 20),
+          _buildTopButtons(),
           const SizedBox(height: 30),
           _buildSkillList(),
-          const Spacer(),
+          const SizedBox(height: 30),
           _buildActionButtons(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 100),
         ],
       ),
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        ElevatedButton.icon(
-          onPressed: _addSkill,
-          icon: const Icon(Icons.add, size: 20),
-          label: const Text('Add Skill'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.teal,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30)),
-          ),
-        ),
-        ElevatedButton.icon(
-          onPressed: _resetForm,
-          icon: const Icon(Icons.clear, size: 20),
-          label: const Text('Clear'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.grey[600],
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30)),
-          ),
-        ),
-        ElevatedButton.icon(
-          onPressed: _goToNextPage,
-          icon: const Icon(Icons.arrow_forward, size: 20),
-          label: const Text('Next'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.teal,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30)),
-          ),
-        ),
-      ],
     );
   }
 
@@ -293,7 +303,7 @@ class _AddSkillScreenState extends State<AddSkillScreen>
         child: Stack(
           children: [
             _buildForm(),
-            if (_showChatBot) 
+            if (_showChatBot)
               Positioned(
                 bottom: 80,
                 right: 20,

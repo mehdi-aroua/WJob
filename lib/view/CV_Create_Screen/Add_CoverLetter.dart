@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_wjob/widgets/chatbot_widget.dart';
+import 'package:flutter_wjob/view/filtre/jobmatching.dart';
 
 class AddCoverLetterScreen extends StatefulWidget {
   const AddCoverLetterScreen({Key? key}) : super(key: key);
@@ -115,7 +116,7 @@ class _AddCoverLetterScreenState extends State<AddCoverLetterScreen>
   Widget _buildCoverLetterField() {
     return TextField(
       controller: _coverLetterController,
-      maxLines: 10, // Permet plusieurs lignes pour la lettre de motivation
+      maxLines: 10,
       decoration: InputDecoration(
         hintText: 'Write your cover letter here...',
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -186,8 +187,11 @@ class _AddCoverLetterScreenState extends State<AddCoverLetterScreen>
             return;
           }
 
-          // Naviguer vers la page suivante
-          // Exemple : Navigator.push(context, MaterialPageRoute(builder: (context) => NextScreen()));
+          // ✅ Navigation vers JobMatching
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) =>  Jobmatching()),
+          );
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.teal,
@@ -232,7 +236,7 @@ class _AddCoverLetterScreenState extends State<AddCoverLetterScreen>
           borderRadius: BorderRadius.circular(12),
           boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5))],
         ),
-        child: const ChatBotWidget(), // Remplacez par votre widget de chatbot
+        child: const ChatBotWidget(),
       ),
     );
   }
