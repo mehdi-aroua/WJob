@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_wjob/widgets/chatbot_widget.dart'; // Si tu veux réutiliser ton chatbot !
-import 'package:flutter_wjob/view/CV_Create_Screen/Add_SocialMedia_Screen.dart'; // Mets le bon chemin si besoin
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+import 'package:flutter_wjob/widgets/chatbot_widget.dart';
+import 'package:flutter_wjob/view/CV_Create_Screen/Add_SocialMedia_Screen.dart';
 
 class AddLanguageScreen extends StatefulWidget {
   const AddLanguageScreen({Key? key}) : super(key: key);
@@ -10,7 +13,6 @@ class AddLanguageScreen extends StatefulWidget {
 }
 
 class _AddLanguageScreenState extends State<AddLanguageScreen> with SingleTickerProviderStateMixin {
-  final TextEditingController languageController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
 
   String selectedLanguage = 'English'; // Default language
@@ -20,7 +22,6 @@ class _AddLanguageScreenState extends State<AddLanguageScreen> with SingleTicker
   bool _showChatBot = false;
   late final AnimationController _animationController;
 
-  // List of languages (simulating an API response)
   List<String> supportedLanguages = [];
 
   @override
@@ -30,13 +31,11 @@ class _AddLanguageScreenState extends State<AddLanguageScreen> with SingleTicker
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    // Simulate an API call to get supported languages
     _loadSupportedLanguages();
   }
 
   @override
   void dispose() {
-    languageController.dispose();
     descriptionController.dispose();
     _animationController.dispose();
     super.dispose();
@@ -47,23 +46,45 @@ class _AddLanguageScreenState extends State<AddLanguageScreen> with SingleTicker
     _showChatBot ? _animationController.forward() : _animationController.reverse();
   }
 
-  void _loadSupportedLanguages() async {
-    // Simulating an API call delay
-    await Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        // Example of supported languages (can be replaced with actual API data)
-        supportedLanguages = ['English', 'Spanish', 'French', 'German', 'Chinese', 'Arabic', 'Russian', 'Japanese'];
-      });
-    });
+  Future<void> _loadSupportedLanguages() async {
+    const url = 'https://restcountries.com/v3.1/all';
+
+    try {
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> countries = json.decode(response.body);
+        final Set<String> languages = {};
+
+        for (var country in countries) {
+          final langs = country['languages'];
+          if (langs != null && langs is Map) {
+            languages.addAll(langs.values.map((e) => e.toString()));
+          }
+        }
+
+        setState(() {
+          supportedLanguages = languages.toList()..sort();
+          selectedLanguage = supportedLanguages.first;
+        });
+      } else {
+        throw Exception('Failed to load languages');
+      }
+    } catch (e) {
+      debugPrint('Error loading languages: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load languages from API')),
+      );
+    }
   }
 
   void _addLanguage() {
-    final language = languageController.text.trim();
+    final language = selectedLanguage;
     final description = descriptionController.text.trim();
 
     if (language.isEmpty || selectedProficiency.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the language and proficiency.')),
+        const SnackBar(content: Text('Please select a language and proficiency.')),
       );
       return;
     }
@@ -81,9 +102,9 @@ class _AddLanguageScreenState extends State<AddLanguageScreen> with SingleTicker
 
   void _resetForm() {
     setState(() {
-      languageController.clear();
       descriptionController.clear();
       selectedProficiency = 'Beginner';
+      selectedLanguage = supportedLanguages.isNotEmpty ? supportedLanguages.first : 'English';
     });
   }
 
@@ -100,7 +121,7 @@ class _AddLanguageScreenState extends State<AddLanguageScreen> with SingleTicker
         const Padding(
           padding: EdgeInsets.only(right: 16),
           child: CircleAvatar(
-            backgroundImage: AssetImage('lib/assets/profiles.png'), // Vérifie le chemin
+            backgroundImage: AssetImage('lib/assets/profiles.png'),
             radius: 20,
           ),
         ),
@@ -154,19 +175,21 @@ class _AddLanguageScreenState extends State<AddLanguageScreen> with SingleTicker
   }
 
   Widget _buildLanguageDropdown() {
-    return DropdownButtonFormField<String>(
-      value: selectedLanguage,
-      items: supportedLanguages
-          .map((language) => DropdownMenuItem(value: language, child: Text(language)))
-          .toList(),
-      onChanged: (value) {
-        setState(() => selectedLanguage = value!);
-      },
-      decoration: InputDecoration(
-        labelText: 'Language',
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+    return supportedLanguages.isEmpty
+        ? const Center(child: CircularProgressIndicator())
+        : DropdownButtonFormField<String>(
+            value: selectedLanguage,
+            items: supportedLanguages
+                .map((language) => DropdownMenuItem(value: language, child: Text(language)))
+                .toList(),
+            onChanged: (value) {
+              setState(() => selectedLanguage = value!);
+            },
+            decoration: InputDecoration(
+              labelText: 'Language',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
   }
 
   Widget _buildProficiencyDropdown() {
@@ -272,7 +295,7 @@ class _AddLanguageScreenState extends State<AddLanguageScreen> with SingleTicker
         child: Stack(
           children: [
             _buildForm(),
-            _buildChatBotButton(), // Si tu veux le chatbot !
+            _buildChatBotButton(),
             if (_showChatBot) _buildChatBot(),
           ],
         ),

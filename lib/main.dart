@@ -28,7 +28,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.teal,
         fontFamily: 'Roboto',
       ),
-      home: const LoginScreen(),
+      home: const AddLanguageScreen(),
     );
   }
 }

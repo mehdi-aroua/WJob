@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_wjob/widgets/chatbot_widget.dart';
 import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
+
 class CreateCVScreen extends StatefulWidget {
   const CreateCVScreen({super.key});
 
@@ -18,7 +19,7 @@ class _CreateCVScreenState extends State<CreateCVScreen> with SingleTickerProvid
   final ImagePicker _picker = ImagePicker();
   DateTime? _selectedDate;
   late AnimationController _animationController;
-  
+
   final TextEditingController _dobController = TextEditingController();
   final TextEditingController _aboutMeController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
@@ -27,7 +28,6 @@ class _CreateCVScreenState extends State<CreateCVScreen> with SingleTickerProvid
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _zipController = TextEditingController();
-  final TextEditingController _chatController = TextEditingController();
 
   String? _selectedCountry;
   String? _selectedGender;
@@ -42,7 +42,7 @@ class _CreateCVScreenState extends State<CreateCVScreen> with SingleTickerProvid
       vsync: this,
       duration: const Duration(seconds: 1),
     )..repeat(reverse: true);
-    
+
     _fetchCountries();
   }
 
@@ -56,30 +56,23 @@ class _CreateCVScreenState extends State<CreateCVScreen> with SingleTickerProvid
     _addressController.dispose();
     _cityController.dispose();
     _zipController.dispose();
-    _chatController.dispose();
     _animationController.dispose();
     super.dispose();
   }
 
   Future<void> _fetchCountries() async {
-    setState(() {
-      _isLoadingCountries = true;
-    });
-    
+    setState(() => _isLoadingCountries = true);
     try {
       final response = await http.get(
         Uri.parse('https://restcountries.com/v3.1/all?fields=name'),
       );
-      
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         final List<String> countryNames = data
             .map((country) => country['name']['common'].toString())
             .toList()
             .cast<String>();
-        
         countryNames.sort();
-        
         setState(() {
           _countries = countryNames;
           _isLoadingCountries = false;
@@ -98,37 +91,34 @@ class _CreateCVScreenState extends State<CreateCVScreen> with SingleTickerProvid
     }
   }
 
-Future<void> _pickImage() async {
-  try {
-    await [
-      Permission.camera,
-      Permission.storage,
-    ].request();
+  Future<void> _pickImage() async {
+    try {
+      await [Permission.camera, Permission.storage].request();
 
-    final XFile? image = await _picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1800,
-      maxHeight: 1800,
-    );
-    
-    if (image != null) {
-      setState(() => _profileImage = File(image.path));
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1800,
+        maxHeight: 1800,
+      );
+
+      if (image != null) {
+        setState(() => _profileImage = File(image.path));
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error selecting image: $e')),
+      );
     }
-  } catch (e) {
-    debugPrint('Error picking image: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Error selecting image: $e'))
-    );
   }
-}
+
   Future<void> _pickDateOfBirth(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate ?? DateTime(2004, 1, 1),
+      initialDate: _selectedDate ?? DateTime(2000),
       firstDate: DateTime(1925),
       lastDate: DateTime.now(),
     );
-
     if (picked != null) {
       setState(() {
         _selectedDate = picked;
@@ -138,6 +128,9 @@ Future<void> _pickImage() async {
   }
 
   void _submitForm() {
+    final emailPattern = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$');
+    final phonePattern = RegExp(r'^[0-9]{8,}$');
+
     if (_nameController.text.isEmpty ||
         _emailController.text.isEmpty ||
         _phoneController.text.isEmpty ||
@@ -152,6 +145,20 @@ Future<void> _pickImage() async {
       return;
     }
 
+    if (!emailPattern.hasMatch(_emailController.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid email format')),
+      );
+      return;
+    }
+
+    if (!phonePattern.hasMatch(_phoneController.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid phone number')),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const AddEducationScreen()),
@@ -159,48 +166,46 @@ Future<void> _pickImage() async {
   }
 
   void _toggleChat() {
-    setState(() {
-      _showChatBot = !_showChatBot;
-    });
+    setState(() => _showChatBot = !_showChatBot);
   }
 
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: _buildAppBar(context),
-    body: SafeArea(
-      child: Stack(
-        children: [
-          _buildForm(context),
-          if (_showChatBot)
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: _buildAppBar(context),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            _buildForm(context),
+            if (_showChatBot)
+              Positioned(
+                right: 10,
+                bottom: 80,
+                width: MediaQuery.of(context).size.width * 0.8,
+                height: MediaQuery.of(context).size.height * 0.6,
+                child: Card(
+                  elevation: 8,
+                  child: const ChatBotWidget(),
+                ),
+              ),
             Positioned(
-              right: 10,
-              bottom: 80,
-              width: MediaQuery.of(context).size.width * 0.8,
-              height: MediaQuery.of(context).size.height * 0.6,
-              child: Card(
-                elevation: 8,
-                child: const ChatBotWidget(),
+              bottom: 20,
+              right: 20,
+              child: FloatingActionButton(
+                backgroundColor: Colors.teal,
+                onPressed: _toggleChat,
+                child: Icon(
+                  _showChatBot ? Icons.close : Icons.chat,
+                  color: Colors.white,
+                ),
               ),
             ),
-          Positioned(
-            bottom: 20,
-            right: 20,
-            child: FloatingActionButton(
-              backgroundColor: Colors.teal,
-              onPressed: _toggleChat,
-              child: Icon(
-                _showChatBot ? Icons.close : Icons.chat,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
@@ -210,11 +215,11 @@ Widget build(BuildContext context) {
         icon: const Icon(Icons.arrow_back, color: Colors.black),
         onPressed: () => Navigator.pop(context),
       ),
-      actions: [
+      actions: const [
         Padding(
-          padding: const EdgeInsets.only(right: 16.0),
+          padding: EdgeInsets.only(right: 16.0),
           child: CircleAvatar(
-            backgroundImage: const AssetImage('lib/assets/profiles.png'),
+            backgroundImage: AssetImage('lib/assets/profiles.png'),
             radius: 20,
           ),
         ),
@@ -233,9 +238,7 @@ Widget build(BuildContext context) {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
-
           _buildProfileImage(),
-
           const SizedBox(height: 20),
           _buildTextField(_nameController, 'Name'),
           _buildTextField(_emailController, 'Email Address', keyboardType: TextInputType.emailAddress),
@@ -245,15 +248,11 @@ Widget build(BuildContext context) {
           _buildTextField(_addressController, 'Address'),
           _buildTextField(_zipController, 'Zip Code', keyboardType: TextInputType.number),
           _buildDropdownField('Gender', ['Male', 'Female', 'Other'], _selectedGender, (val) {
-            setState(() {
-              _selectedGender = val;
-            });
+            setState(() => _selectedGender = val);
           }),
           _buildDatePickerField(context),
           _buildAboutMeField(),
-
           const SizedBox(height: 20),
-
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.teal,
@@ -271,29 +270,25 @@ Widget build(BuildContext context) {
     );
   }
 
-  // Replace _buildProfileImage method
-Widget _buildProfileImage() {
-  return GestureDetector(
-    onTap: _pickImage,
-    child: Container(
-      width: 120,
-      height: 120,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.grey[200],
-        image: _profileImage != null
-            ? DecorationImage(
-                image: FileImage(_profileImage!),
-                fit: BoxFit.cover,
-              )
+  Widget _buildProfileImage() {
+    return GestureDetector(
+      onTap: _pickImage,
+      child: Container(
+        width: 120,
+        height: 120,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.grey[200],
+          image: _profileImage != null
+              ? DecorationImage(image: FileImage(_profileImage!), fit: BoxFit.cover)
+              : null,
+        ),
+        child: _profileImage == null
+            ? Icon(Icons.camera_alt, size: 40, color: Colors.grey[800])
             : null,
       ),
-      child: _profileImage == null
-          ? Icon(Icons.camera_alt, size: 40, color: Colors.grey[800])
-          : null,
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildTextField(TextEditingController controller, String label, {TextInputType keyboardType = TextInputType.text}) {
     return Padding(
@@ -310,36 +305,22 @@ Widget _buildProfileImage() {
   }
 
   Widget _buildCountryDropdown() {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8.0),
-    child: _isLoadingCountries
-        ? const Center(child: CircularProgressIndicator())
-        : DropdownButtonFormField<String>(
-            value: _selectedCountry,
-            isExpanded: true, // Fix overflow
-            decoration: InputDecoration(
-              labelText: 'Country',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-            ),
-            items: _countries.map((String country) {
-              return DropdownMenuItem<String>(
-                value: country,
-                child: Text(
-                  country,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14),
-                ),
-              );
-            }).toList(),
-            onChanged: (String? newValue) {
-              setState(() {
-                _selectedCountry = newValue;
-              });
-            },
-          ),
-  );
-}
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: DropdownButtonFormField<String>(
+        isExpanded: true,
+        value: _selectedCountry,
+        hint: const Text('Select Country'),
+        decoration: InputDecoration(
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+        items: _countries.map((country) {
+          return DropdownMenuItem(value: country, child: Text(country));
+        }).toList(),
+        onChanged: (val) => setState(() => _selectedCountry = val),
+      ),
+    );
+  }
 
   Widget _buildDropdownField(String label, List<String> options, String? selectedValue, ValueChanged<String?> onChanged) {
     return Padding(

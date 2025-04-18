@@ -42,6 +42,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: _buildAppBar(context),
       drawer: SizedBox(
       width: MediaQuery.of(context).size.width * 0.75, 
