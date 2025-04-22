@@ -1,6 +1,4 @@
-import 'dart:math';
-import 'dart:typed_data'; 
-import 'package:device_info_plus/device_info_plus.dart';
+import 'dart:math'; 
 import 'package:flutter/material.dart';
 import 'package:flutter_wjob/api_service.dart';
 import 'package:flutter_wjob/classes/class_job_item.dart';
@@ -9,7 +7,6 @@ import 'package:flutter_wjob/widgets/chatbot_widget.dart';
 import 'package:flutter_wjob/view/filtre/jobmatching.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:printing/printing.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
@@ -389,12 +386,12 @@ Future<void> _generateAndDownloadPDF() async {
     
     print('PDF generation completed successfully, ${pdfResult.bytes!.length} bytes generated');
     
-    // Extract CV data based on platform capabilities
+    // Try to extract CV data (but don't fail the whole process if this fails)
     Map<String, dynamic>? extractedData;
     final apiService = ApiService();
     
     try {
-      // Use try-catch to handle potential platform issues
+      // First try bytes-based approach
       try {
         print('Using bytes-based approach to extract CV');
         extractedData = await apiService.extractCvFromBytes(pdfResult.bytes!);
@@ -402,8 +399,9 @@ Future<void> _generateAndDownloadPDF() async {
       } catch (bytesError) {
         print('Error with bytes extraction: $bytesError');
         
-        // Fall back to file-based approach if needed
+        // Fall back to file-based approach if bytes approach fails
         try {
+          print('Attempting file-based extraction');
           final tempDir = await getTemporaryDirectory();
           final file = File('${tempDir.path}/temp_cv.pdf');
           await file.writeAsBytes(pdfResult.bytes!);
@@ -411,9 +409,12 @@ Future<void> _generateAndDownloadPDF() async {
           
           extractedData = await apiService.extractCv(file);
           print('Extracted CV data (file): $extractedData');
+          
+          // Clean up the temp file
+          await file.delete();
         } catch (fileError) {
           print('Error with file extraction: $fileError');
-          throw Exception('Both extraction methods failed');
+          // Don't throw here - we'll just continue without extracted data
         }
       }
     } catch (e) {
@@ -489,16 +490,6 @@ Future<void> _generateAndDownloadPDF() async {
             ),
             child: Text("Share PDF"),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _downloadPDF(pdfResult.bytes!);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal,
-            ),
-            child: Text("Download PDF"),
-          ),
         ],
       ),
     );
@@ -514,78 +505,6 @@ Future<void> _generateAndDownloadPDF() async {
         duration: Duration(seconds: 10),
       ),
     );
-  }
-}
-
-Future<bool> _isAndroid13OrHigher() async {
-  if (Platform.isAndroid) {
-    final deviceInfo = await DeviceInfoPlugin().androidInfo;
-    return deviceInfo.version.sdkInt >= 33;
-  }
-  return false;
-}
-
-Future<bool> _requestStoragePermission() async {
-  if (await _isAndroid13OrHigher()) {
-    final status = await Permission.photos.request();
-    return status.isGranted;
-  } else {
-    final status = await Permission.storage.request();
-    return status.isGranted;
-  }
-}
-
-Future<void> _downloadPDF(Uint8List bytes) async {
-  try {
-    final String fileName = 'my_cv_${DateTime.now().millisecondsSinceEpoch}.pdf';
-    
-    if (kIsWeb) {
-      await Printing.sharePdf(
-        bytes: bytes,
-        filename: fileName,
-      );
-      return;
-    }
-    
-    if (Platform.isAndroid || Platform.isIOS) {
-      // Request permission first
-      final hasPermission = await _requestStoragePermission();
-      
-      if (!hasPermission) {
-        throw Exception('Storage permission denied');
-      }
-
-      // Get the downloads directory
-      final directory = await getExternalStorageDirectory();
-      if (directory == null) throw Exception('Could not access storage');
-      
-      final downloadPath = Platform.isAndroid 
-          ? '/storage/emulated/0/Download'  // Android specific download path
-          : directory.path;
-      
-      final file = File('$downloadPath/$fileName');
-      await file.writeAsBytes(bytes);
-      
-      // Show success message with file path
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('PDF saved to: ${file.path}'),
-            duration: Duration(seconds: 5),
-          ),
-        );
-      }
-    }
-  } catch (e) {
-    print('Error downloading PDF: $e');
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error downloading PDF: $e'),
-          duration: Duration(seconds: 5),
-        ),
-      );
-    }
   }
 }
 

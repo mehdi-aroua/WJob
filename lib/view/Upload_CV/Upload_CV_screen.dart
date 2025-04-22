@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart'; // Pour sélectionner des fichiers
 import 'package:flutter_wjob/widgets/chatbot_widget.dart'; // Pour le chatbot
@@ -15,6 +16,8 @@ class _UploadCVScreenState extends State<UploadCVScreen>
     with SingleTickerProviderStateMixin {
   File? _cvFile;
   bool _showChatBot = false;
+  Uint8List? _imageBytes;
+  File? _insuranceFile;
   late AnimationController _animationController;
 
   @override
@@ -25,6 +28,37 @@ class _UploadCVScreenState extends State<UploadCVScreen>
       duration: const Duration(milliseconds: 300),
     );
   }
+ Future<void> _pickDocument(String type) async {
+  print('[DEBUG] Picking document of type: $type'); // Track file picker call
+
+  FilePickerResult? result = await FilePicker.platform.pickFiles(
+    type: FileType.custom, 
+    allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+  );
+
+  if (result != null) {
+    PlatformFile file = result.files.first;
+    print('[DEBUG] Selected file: ${file.name}, path: ${file.path}, bytes: ${file.bytes != null}'); // Log file details
+
+    setState(() {
+      if (!kIsWeb && file.path != null) {
+        switch (type) {
+          case 'cv':
+            _insuranceFile = File(file.path!);
+            print('[DEBUG] _insuranceFile set: ${_insuranceFile?.path}'); // Confirm file assignment
+            break;
+        }
+      } else if (kIsWeb) {
+        _imageBytes = file.bytes;
+        print('[DEBUG] _imageBytes set (Web): ${_imageBytes != null}'); // Confirm bytes assignment
+      }
+    });
+  } else {
+    print('[DEBUG] User cancelled file picker'); // Check if user cancelled
+  }
+}
+
+
 
   @override
   void dispose() {
@@ -105,7 +139,23 @@ class _UploadCVScreenState extends State<UploadCVScreen>
       ),
     );
   }
-
+   Future<void> _pickImageFromGallery() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom, 
+      allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png']
+    );
+    
+    if (result != null) {
+      PlatformFile file = result.files.first;
+      setState(() {
+        if (kIsWeb) {
+          _imageBytes = file.bytes;
+        } else {
+          _cvFile = File(file.path!);
+        }
+      });
+    }
+  }
   Widget _buildContent() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -134,34 +184,37 @@ class _UploadCVScreenState extends State<UploadCVScreen>
   }
 
   Widget _buildFilePicker() {
-    return GestureDetector(
-      onTap: _pickFile,
-      child: Container(
-        height: 150,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.teal, width: 2),
-        ),
-        child: Center(
-          child: _cvFile == null
-              ? Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.upload_file, size: 40, color: Colors.teal),
-                    SizedBox(height: 10),
-                    Text('Tap to upload your CV', style: TextStyle(color: Colors.teal)),
-                  ],
-                )
-              : Text(
-                  _cvFile!.path.split('/').last,
-                  style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold),
+  print('[DEBUG] Building File Picker Widget'); // Track widget rebuilds
+
+  return GestureDetector(
+    onTap: () async {
+      print('[DEBUG] Tapped on File Picker'); // Check if tap is registered
+      await _pickDocument('cv');
+    },
+    child: Container(
+      height: 104,
+      width: 104,
+      color: Colors.grey[300],
+      child: _insuranceFile != null || _imageBytes != null
+          ? _imageBytes != null
+              ? Image.memory(_imageBytes!, fit: BoxFit.cover)
+              : Image.file(_insuranceFile!, fit: BoxFit.cover)
+          : Center(
+              child: SizedBox(
+                height: 27,
+                width: 36,
+                child: Image.asset(
+                  "assets/logo.png",
+                  errorBuilder: (context, error, stackTrace) {
+                    print('[ERROR] Failed to load image: $error'); // Debug image loading
+                    return const Icon(Icons.error, color: Colors.red);
+                  },
                 ),
-        ),
-      ),
-    );
-  }
+              ),
+            ),
+    ),
+  );
+}
 
   Widget _buildFilePreview() {
     final fileExtension = _cvFile!.path.split('.').last.toLowerCase();

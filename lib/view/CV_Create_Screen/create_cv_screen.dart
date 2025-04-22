@@ -221,19 +221,19 @@ Future<void> _pickImage() async {
     final emailPattern = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$');
     final phonePattern = RegExp(r'^[0-9]{8,}$');
 
-    if (_nameController.text.isEmpty ||
-        _emailController.text.isEmpty ||
-        _phoneController.text.isEmpty ||
-        _addressController.text.isEmpty ||
-        _selectedCountry == null ||
-        _selectedGender == null ||
-        _dobController.text.isEmpty ||
-        _aboutMeController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields')),
-      );
-      return;
-    }
+    // if (_nameController.text.isEmpty ||
+    //     _emailController.text.isEmpty ||
+    //     _phoneController.text.isEmpty ||
+    //     _addressController.text.isEmpty ||
+    //     _selectedCountry == null ||
+    //     _selectedGender == null ||
+    //     _dobController.text.isEmpty ||
+    //     _aboutMeController.text.isEmpty) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(content: Text('Please fill all fields')),
+    //   );
+    //   return;
+    // }
 
     // if (!emailPattern.hasMatch(_emailController.text)) {
     //   ScaffoldMessenger.of(context).showSnackBar(
@@ -350,7 +350,7 @@ Future<void> _pickImage() async {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const AddEducationScreen(), //AddEducationScreen(),
+        builder: (context) => const AddCoverLetterScreen(), //AddEducationScreen(),
         // settings: RouteSettings(arguments: pdfFile),
       ),
     );

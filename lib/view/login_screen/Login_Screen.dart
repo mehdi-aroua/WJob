@@ -280,7 +280,7 @@ class _Logo extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 30.0),
       child: Image.asset(
-        'lib/assets/logo.png',
+        'assets/logo.png',
         height: 80,
         fit: BoxFit.contain,
         errorBuilder: (_, __, ___) =>
