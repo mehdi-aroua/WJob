@@ -689,7 +689,7 @@ from job_scraper_project.modules.extract_text import extract_text_from_pdf
 from job_scraper_project.modules.summarize import summarize_text
 from job_scraper_project.modules.extract_info import extract_info
 from job_scraper_project.modules.job_scraper import fetch_jobs
-from job_scraper_project.modules.job_matcher import match_jobs
+from job_scraper_project.modules.job_matcher import match_jobs , match_jobsLinkdin
 from job_scraper_project.modules.job_filter import filter_jobs
 from job_scraper_project.modules.company_stats import show_company_stats
 from django.contrib.auth.hashers import make_password, check_password
@@ -700,7 +700,7 @@ import os
 import django
 import sys
 import base64
-from typing import Dict, Any
+from typing import  List, Dict, Any
 import traceback
 from asgiref.sync import sync_to_async
 import json
@@ -708,6 +708,13 @@ import random
 from datetime import datetime, timedelta
 import argparse
 from django.utils import timezone
+from fastapi import APIRouter
+from linkdinScrap  import linkdiScrap as scrape_linkedin_profile 
+import requests 
+import uuid 
+
+
+
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'linkedin_indeed_integration.settings')
 django.setup()
@@ -725,6 +732,8 @@ from interview_coaching.models import (
 )
 
 app = FastAPI()
+router = APIRouter(prefix="/api")
+app.include_router(router)
 
 def create_driver():
     """Créer une instance du driver Selenium."""
@@ -736,21 +745,45 @@ def home():
     """Message d'accueil."""
     return {"message": "Bienvenue sur l'API de Job Matching !"}
 
+# @app.post("/extract-cv")
+# def extract_cv(file: UploadFile = File(...)):
+#     """Extraction du texte et des infos depuis un CV importé."""
+#     file_path = f"temp_{file.filename}"
+    
+#     with open(file_path, "wb") as buffer:
+#         buffer.write(file.file.read())
+    
+#     text = extract_text_from_pdf(file_path)
+#     os.remove(file_path)  # Supprime le fichier après extraction
+#     summary = summarize_text(text)
+#     info = extract_info(text)
+    
+#     return {"summary": summary, "extracted_info": info}
+LAST_EXTRACTED_CV = None
+
 @app.post("/extract-cv")
 def extract_cv(file: UploadFile = File(...)):
     """Extraction du texte et des infos depuis un CV importé."""
+    global LAST_EXTRACTED_CV
+    
     file_path = f"temp_{file.filename}"
     
     with open(file_path, "wb") as buffer:
         buffer.write(file.file.read())
     
     text = extract_text_from_pdf(file_path)
-    os.remove(file_path)  # Supprime le fichier après extraction
+    os.remove(file_path)
     summary = summarize_text(text)
     info = extract_info(text)
     
-    return {"summary": summary, "extracted_info": info}
-
+    # Store the extracted data
+    LAST_EXTRACTED_CV = {
+        "summary": summary,
+        "extracted_info": info,
+        "raw_text": text  # Optional: store raw text if needed
+    }
+    
+    return LAST_EXTRACTED_CV
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'job_scraper_project.settings')
@@ -819,7 +852,10 @@ def signup(user: Dict[str, Any]):
         return {
             "message": "Utilisateur créé",  
             "user_id": user_instance.id,    
-            "email": user_instance.email
+            "email": user_instance.email ,
+            "nom" : user_instance.nom, 
+            "prenom" : user_instance.prenom ,
+            "phone" : user_instance.phone 
         }
 
     except Exception as e:
@@ -871,6 +907,34 @@ async def login(credentials: Dict[str, Any]):
     except Exception as e:
         logger.exception(f"Unexpected error during login: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.get("/users/", response_model=List[Dict[str, Any]])
+async def get_all_users():
+    try:
+        # Récupérer tous les utilisateurs de manière asynchrone
+        users = await sync_to_async(list)(User.objects.all())
+        
+        # Convertir les données utilisateur en format sérialisable
+        user_list = []
+        for user in users:
+            user_data = {
+                "id": user.id,
+                "nom": user.nom,
+                "prenom": user.prenom,
+                "email": user.email,
+                "ville": user.ville,
+                "phone": user.phone,
+                "date_anniverssaire": user.date_anniverssaire.isoformat() if user.date_anniverssaire else None,
+                # Convertir la photo en base64 si elle existe
+                "photo": base64.b64encode(user.photo).decode('utf-8') if user.photo else None
+            }
+            user_list.append(user_data)
+        
+        return user_list
+        
+    except Exception as e:
+        logger.exception(f"Error fetching users: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 @app.get("/scrape-jobs")
 def scrape_jobs():
     """Scraper les offres d'emploi sur LinkedIn."""
@@ -882,21 +946,46 @@ def scrape_jobs():
 
     return {"jobs": jobs[:10]}  # Retourner seulement les 10 premiers jobs
 
+# @app.get("/match-jobs")
+# def match_jobs_api():
+#     """Faire correspondre les jobs au profil extrait du CV."""
+#     pdf_path = "K:/WJob/analysethecv/cv/CV.pdf"
+#     text = extract_text_from_pdf(pdf_path)
+#     info = extract_info(text)
+
+#     driver = create_driver()
+#     driver.get("https://www.linkedin.com/jobs/search?keywords=&location=Worldwide&geoId=92000000")
+
+#     jobs = fetch_jobs(driver)
+#     best_jobs = match_jobs(info, jobs)
+#     driver.quit()
+
+#     return {"best_jobs": best_jobs[:10]}  # Retourner les 10 meilleurs jobs
 @app.get("/match-jobs")
 def match_jobs_api():
-    """Faire correspondre les jobs au profil extrait du CV."""
-    pdf_path = "K:/WJob/analysethecv/cv/CV.pdf"
-    text = extract_text_from_pdf(pdf_path)
-    info = extract_info(text)
-
+    """Faire correspondre les jobs au dernier CV extrait."""
+    global LAST_EXTRACTED_CV
+    
+    if not LAST_EXTRACTED_CV:
+        raise HTTPException(
+            status_code=400,
+            detail="No CV extracted yet. Please call /extract-cv first."
+        )
+    
+    # Use the stored CV data
+    info = LAST_EXTRACTED_CV["extracted_info"]
+    
     driver = create_driver()
-    driver.get("https://www.linkedin.com/jobs/search?keywords=&location=Worldwide&geoId=92000000")
-
+    driver.get("https://www.linkedin.com/jobs/search?keywords=&location=Worldwide")
     jobs = fetch_jobs(driver)
     best_jobs = match_jobs(info, jobs)
     driver.quit()
 
-    return {"best_jobs": best_jobs[:10]}  # Retourner les 10 meilleurs jobs
+    return {
+        "cv_analysis": LAST_EXTRACTED_CV,  # Include original CV analysis
+        "best_jobs": best_jobs[:10],
+        "total_matches": len(best_jobs)
+    }
 
 @app.get("/filter-jobs")
 def filter_jobs_api(
@@ -1266,7 +1355,130 @@ def import_dummy_linkedin_profile_endpoint(profile_num: int = 1):
                     {"name": "Python", "endorsements": 22},
                     {"name": "Machine Learning", "endorsements": 18}
                 ]
+            },
+            {
+        "id": 3,
+        "first_name": "Lucas",
+        "last_name": "Bernard",
+        "headline": "Ingénieur DevOps",
+        "summary": "Ingénieur DevOps avec expertise en automatisation CI/CD et gestion d'infrastructure cloud.",
+        "location": "Toulouse, France",
+        "linkedin_url": "https://www.linkedin.com/in/lucas-bernard-789/",
+        "positions": [
+            {
+                "title": "Ingénieur DevOps",
+                "company": "CloudWorks",
+                "start_date": "2019-05-01",
+                "end_date": None,
+                "current": True,
+                "description": "Mise en place de pipelines CI/CD et gestion AWS."
             }
+        ],
+        "education": [
+            {
+                "institution": "INSA Toulouse",
+                "degree": "Diplôme d'ingénieur",
+                "field_of_study": "Informatique",
+                "description": "Spécialisation en systèmes et réseaux."
+            }
+        ],
+        "skills": [
+            {"name": "AWS", "endorsements": 20},
+            {"name": "Docker", "endorsements": 18}
+        ]
+    },
+    {
+        "id": 5,
+        "first_name": "Thomas",
+        "last_name": "Petit",
+        "headline": "Chef de projet IT",
+        "summary": "Chef de projet IT avec 7 ans d'expérience dans la gestion de projets informatiques complexes.",
+        "location": "Nantes, France",
+        "linkedin_url": "https://www.linkedin.com/in/thomas-petit-202/",
+        "positions": [
+            {
+                "title": "Chef de projet IT",
+                "company": "ITManage",
+                "start_date": "2018-09-01",
+                "end_date": None,
+                "current": True,
+                "description": "Gestion de projets de transformation digitale."
+            }
+        ],
+        "education": [
+            {
+                "institution": "IMT Atlantique",
+                "degree": "Master",
+                "field_of_study": "Management des Systèmes d'Information",
+                "description": "Spécialisation en gestion de projet agile."
+            }
+        ],
+        "skills": [
+            {"name": "Scrum", "endorsements": 19},
+            {"name": "Gestion de projet", "endorsements": 23}
+        ]
+    }, {
+        "id": 6,
+        "first_name": "Clara",
+        "last_name": "Moreau",
+        "headline": "Consultante en cybersécurité",
+        "summary": "Consultante spécialisée en cybersécurité avec une expérience en audit et en protection des données.",
+        "location": "Lille, France",
+        "linkedin_url": "https://www.linkedin.com/in/clara-moreau-303/",
+        "positions": [
+            {
+                "title": "Consultante en cybersécurité",
+                "company": "SecureIT",
+                "start_date": "2020-06-01",
+                "end_date": None,
+                "current": True,
+                "description": "Réalisation d'audits de sécurité et conseil en conformité RGPD."
+            }
+        ],
+        "education": [
+            {
+                "institution": "Université de Lille",
+                "degree": "Master",
+                "field_of_study": "Sécurité informatique",
+                "description": "Spécialisation en cybersécurité des systèmes."
+            }
+        ],
+        "skills": [
+            {"name": "Cybersecurity", "endorsements": 21},
+            {"name": "ISO 27001", "endorsements": 14}
+        ]
+    },
+    {
+        "id": 7,
+        "first_name": "Antoine",
+        "last_name": "Girard",
+        "headline": "Architecte Cloud",
+        "summary": "Architecte Cloud avec 8 ans d'expérience dans la conception d'architectures AWS et Azure.",
+        "location": "Bordeaux, France",
+        "linkedin_url": "https://www.linkedin.com/in/antoine-girard-404/",
+        "positions": [
+            {
+                "title": "Architecte Cloud",
+                "company": "CloudMasters",
+                "start_date": "2017-02-01",
+                "end_date": None,
+                "current": True,
+                "description": "Conception et déploiement d'architectures cloud sécurisées et scalables."
+            }
+        ],
+        "education": [
+            {
+                "institution": "ENSEIRB-MATMECA",
+                "degree": "Diplôme d'ingénieur",
+                "field_of_study": "Informatique",
+                "description": "Spécialisation en systèmes distribués."
+            }
+        ],
+        "skills": [
+            {"name": "AWS", "endorsements": 30},
+            {"name": "Azure", "endorsements": 27}
+        ]
+    }
         ]
         
         # Sélectionner le profil demandé
@@ -1894,7 +2106,141 @@ def start_interview_simulation(profile) :
     
     print(f"Session d'entretien terminée avec un score de {session.session_score:.2f}")
     return session
+    
 
+# Stockage temporaire des profils en mémoire (exemple simplifié)
+profiles = {}
+
+# Clé API et ID de PhantomBuster
+PHANTOMBUSTER_API_KEY = "Vz3MkhnQ2I7nplMLEYktO4mYjbeCKcUOnStivBWuejU"
+PHANTOMBUSTER_AGENT_ID = "4611848888784137"
+
+def get_linkedin_data_from_phantombuster(linkedin_url: str) -> dict:
+    headers = {
+        "X-Phantombuster-Key-1": PHANTOMBUSTER_API_KEY
+    }
+
+    payload = {
+        "id": PHANTOMBUSTER_AGENT_ID,
+        "arguments": {
+            "profileUrls": [linkedin_url]
+        }
+    }
+
+    response = requests.post(
+        "https://api.phantombuster.com/api/v2/agents/launch",
+        headers=headers,
+        json=payload
+    )
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"Erreur PhantomBuster: {response.text}")
+
+    data = response.json()
+    try:
+        return data["data"]["resultObject"]
+    except KeyError:
+        raise HTTPException(status_code=500, detail="Profil LinkedIn non trouvé dans la réponse PhantomBuster.")
+
+
+@app.post("/import-linkedin")
+def api_start_interview_simulationsdfdfds(linkedin_url: str = Query(...)):
+    profile_data = get_linkedin_data_from_phantombuster(linkedin_url)
+
+    required_fields = ['firstName', 'lastName', 'headline']
+    for field in required_fields:
+        if field not in profile_data:
+            raise HTTPException(status_code=422, detail=f"Champ requis manquant: {field}")
+
+    # Générer un ID unique pour le profil
+    source_profile_id = str(uuid.uuid4())
+
+    # Vérifier si un profil existe déjà en mémoire
+    if source_profile_id in profiles:
+        profile = profiles[source_profile_id]
+        # Mise à jour
+        profile.update({
+            'first_name': profile_data['firstName'],
+            'last_name': profile_data['lastName'],
+            'headline': profile_data['headline'],
+            'summary': profile_data.get('summary', ''),
+            'location': profile_data.get('location', ''),
+            'linkedin_url': linkedin_url,
+        })
+    else:
+        # Créer un nouveau profil
+        profile = {
+            'source': 'linkedin',
+            'source_profile_id': source_profile_id,
+            'first_name': profile_data['firstName'],
+            'last_name': profile_data['lastName'],
+            'headline': profile_data['headline'],
+            'summary': profile_data.get('summary', ''),
+            'location': profile_data.get('location', ''),
+            'linkedin_url': linkedin_url,
+            'experiences': profile_data.get('experiences', []),
+            'education': profile_data.get('education', []),
+            'skills': profile_data.get('skills', [])
+        }
+        profiles[source_profile_id] = profile
+
+    return {
+        "status": "success",
+        "message": f"Profil importé depuis LinkedIn : {profile['first_name']} {profile['last_name']}",
+        "profile_id": source_profile_id,
+        "profile_data": profile
+    }
+
+
+
+@app.get("/scrape-linkedin-profile")
+def run_linkedin_scraper(profile_url: str = Query(..., description="LinkedIn profile URL to scrape")):
+    """Run the LinkedIn profile scraper with a specified profile URL"""
+    try:
+        profile_data = scrape_linkedin_profile(profile_url)
+        app.state.profile_data = profile_data
+        if profile_data:
+            return profile_data
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+@app.get("/match-jobs-Linkdin")
+def match_jobs_apiLinkdin():
+    if not hasattr(app.state, 'profile_data'):
+        raise HTTPException(status_code=400, detail="Scrapez un profil d'abord")
+    
+    driver = create_driver()
+    try:
+        driver.get("https://www.linkedin.com/jobs/search?keywords=&location=Tunisie")
+        jobs = fetch_jobs(driver)
+        
+        # Get the profile data
+        profile_data = app.state.profile_data
+        
+        # Ensure we're using the correct keys (French or English)
+        if 'compétences' in profile_data or 'expériences' in profile_data:
+            # French keys
+            profile_data_for_matching = {
+                'compétences': profile_data.get('compétences', []),
+                'expériences': profile_data.get('expériences', [])
+            }
+        else:
+            # English keys as fallback
+            profile_data_for_matching = {
+                'compétences': profile_data.get('skills', []),
+                'expériences': profile_data.get('experiences', [])
+            }
+        
+        best_jobs = match_jobsLinkdin(profile_data_for_matching, jobs)
+        
+        return {
+            "best_jobs": best_jobs[:10],
+            "total_matches": len(best_jobs)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        driver.quit()
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

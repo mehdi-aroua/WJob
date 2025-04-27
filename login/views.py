@@ -4,6 +4,10 @@ from rest_framework import status
 from .serializers import SignupSerializer, LoginSerializer
 from .models import User
 from django.contrib.auth.hashers import make_password, check_password , is_password_usable
+from django.contrib.auth import authenticate
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+import base64
 
 @api_view(['POST'])
 def signup(request):
@@ -92,3 +96,22 @@ def login(request):
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# Dans views.py, ajoutez cette nouvelle fonction
+@require_http_methods(["GET"])
+def get_all_users(request):
+    # Vérifier les credentials via Basic Auth
+    if "HTTP_AUTHORIZATION" in request.META:
+        auth = request.META["HTTP_AUTHORIZATION"].split()
+        if len(auth) == 2 and auth[0].lower() == "basic":
+            email, password = base64.b64decode(auth[1]).decode("utf-8").split(":")
+            user = authenticate(email=email, password=password)
+            if user is not None:
+                users = User.objects.all()
+                data = [{
+                    "id": u.id,
+                    "email": u.email,
+                    "nom": u.nom,
+                } for u in users]
+                return JsonResponse(data, safe=False)
+    
+    return JsonResponse({"error": "Authentification requise"}, status=401)

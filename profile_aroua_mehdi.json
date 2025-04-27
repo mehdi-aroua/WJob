@@ -1,0 +1,37 @@
+{
+    "nom": "Aroua Mehdi",
+    "titre": "Computer Science and Engineering Student | Passionate about Software Development and Project Management | Ambitious Entrepreneur",
+    "localisation": "Délégation Djerba Houmet Souk, Gouvernorat Médenine, Tunisie",
+    "à_propos": "",
+    "expériences": [
+        {
+            "titre": "Software Developer",
+            "entreprise": "Freelance",
+            "période": "",
+            "description": ""
+        }
+    ],
+    "formations": [
+        {
+            "institution": "Cegos Paris",
+            "diplôme": "Gestion de projet, en fondamentaux",
+            "période": "2017 - 2017"
+        },
+        {
+            "institution": "London School of Business and Finance LSBF",
+            "diplôme": "Advanced Certificate in Management Consulting and Project Management",
+            "période": "2015 - 2015"
+        }
+    ],
+    "compétences": [
+        "freelance",
+        "Vue.js",
+        "Blender",
+        "IA conversationnelle",
+        "Programmation (Python, C, C#)",
+        "Développement d'applications web et mobiles",
+        "Gestion de projet",
+        "Réseaux informatiques",
+        "Analyse de données"
+    ]
+}
