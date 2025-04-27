@@ -1,0 +1,1 @@
+B:\wjob_test_image\build\app\intermediates\cxx\Debug\2s4x633p\obj\arm64-v8a
